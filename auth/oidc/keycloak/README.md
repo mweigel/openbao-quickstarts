@@ -2,31 +2,33 @@
 
 ## Description
 
-A demonstration of how OIDC can be used to authenticate to OpenBao. In this example KeyCloak is used as the OIDC provider.
+A demonstration of how OIDC can be used to authenticate to OpenBao. In this example Keycloak is used as the OIDC provider.
 
 ## Configuration
-Ensure appropriate values are set in .env for the following environment variables:
+Ensure appropriate values are set in .env for the items with environment variables listed below
 
-| Environment Variable | Description |
-| --- | --- |
-| BAO_DEV_ROOT_TOKEN_ID | Value for initial OpenBao root token |
-| KC_BOOTSTRAP_ADMIN_PASSWORD | Password for the Keycloak administrator |
-| OIDC_USER_PASSWORD | Password for user used to authenticate to Keycloak |
+| Item | Value | Environment Variable | Description |
+| --- | --- | --- | --- |
+| OpenBao root token | N/A | BAO_DEV_ROOT_TOKEN_ID | Openbao [dev mode root token](https://openbao.org/docs/concepts/dev-server) |
+| Keycloak admin user | admin | N/A | [Keycloak admin user](https://www.keycloak.org/server/containers#_provide_initial_admin_credentials_when_running_in_a_container) |
+|Keycloak admin password | N/A | KC_BOOTSTRAP_ADMIN_PASSWORD | Keycloak admin user password |
+| OIDC user | oidc-user | N/A | Username of Keycloak OIDC user |
+| OIDC user password | N/A | OIDC_USER_PASSWORD | Password of Keycloak OIDC user |
 
 ## Running the Example
 After configuring the example, it can be started as shown below. Keycloak may take some time to start up.
-```bash
+```
 make up
 ```
 
 ## Using OpenBao's OIDC Authentication Method
-Get shell within the example-init container
-```bash
+To test client interaction with OpenBao and Keycloak, exec into the client container.
+```
 make exec
 ```
 
-Authenticate to OpenBao using the `bao login` command shown below. This will start the text-based w3m browser and prompt you to enter a username and password.
-```bash
+Authenticate to OpenBao using the `bao login` command shown below. This will start the text-based browser w3m and prompt you to enter a username and password for the OIDC user.
+```
 bao login -method=oidc > output.txt 2>&1 & sleep 2; grep http output.txt | xargs w3m
 ```
 The w3m display will appear as below. To submit the login form:
@@ -39,14 +41,14 @@ Demo Realm
 Sign in to your account
 
 Username or email
-[                    ]
+[oidc-user           ]
 Password
-[                    ]
+[********            ]
 Sign In
 ```
 
 Once logged in successfully you will see the following
-```bash
+```
 Signed in via your OIDC provider
 
 You can now close this window and start using OpenBao.
@@ -59,7 +61,7 @@ Check out the official OpenBao documentation
 ```
 Exit w3m using "Q" and check the contents of output.txt. An OpenBao token should be displayed proving that authentication was successful.
 
-```bash
+```
 cat output.txt
 Complete the login via your OIDC provider. Launching browser to:
 
@@ -84,10 +86,10 @@ token_renewable      true
 token_policies       ["default"]
 identity_policies    []
 policies             ["default"]
-token_meta_role      demo-user
+token_meta_role      oidc-user
 ```
 
 ## Stop the Example
-```bash
+```
 make down
 ```

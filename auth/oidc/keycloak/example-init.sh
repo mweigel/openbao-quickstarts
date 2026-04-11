@@ -62,14 +62,14 @@ CLIENT_SECRET=$(curl -sf \
   "http://keycloak:8080/admin/realms/${REALM}/clients/${CLIENT_UUID}/client-secret" \
   | jq -r '.value')
 
-echo "Creating user 'demo-user'..."
+echo "Creating user 'oidc-user'..."
 curl -sf \
   -X POST \
   -H "Authorization: Bearer ${KC_TOKEN}" \
   -H "Content-Type: application/json" \
   -d "{
-    \"username\": \"demo-user\",
-    \"email\": \"demo-user@example.com\",
+    \"username\": \"oidc-user\",
+    \"email\": \"oidc-user@example.com\",
     \"firstName\": \"Demo\",
     \"lastName\": \"User\",
     \"enabled\": true,
@@ -81,17 +81,17 @@ curl -sf \
   }" \
   "http://keycloak:8080/admin/realms/${REALM}/users"
 
-echo "User 'demo-user' created."
+echo "User 'oidc-user' created."
 
 # Configure OpenBao
 bao auth enable oidc
 bao write auth/oidc/config \
   oidc_client_id="${CLIENT_ID}" \
   oidc_client_secret="${CLIENT_SECRET}" \
-  default_role="demo-user" \
+  default_role="oidc-user" \
   oidc_discovery_url="http://keycloak:8080/realms/${REALM}"
 
-bao write auth/oidc/role/demo-user \
+bao write auth/oidc/role/oidc-user \
   role_type="oidc" \
   user_claim="sub" \
   policies="default" \
@@ -100,6 +100,6 @@ bao write auth/oidc/role/demo-user \
 
 echo ""
 echo ""
-echo "Example ready! You can now log in to OpenBao using 'bao login -method=oidc' and the 'demo-user' account with the password set in the OIDC_USER_PASSWORD environment variable."
+echo "Example ready! You can now log in to OpenBao using 'bao login -method=oidc' and the 'oidc-user' account with the password set in the OIDC_USER_PASSWORD environment variable."
 
 sleep infinity

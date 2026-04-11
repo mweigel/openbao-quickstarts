@@ -4,7 +4,7 @@
 bao secrets enable database
 
 # Configure a connection to the Postgres database.
-bao write database/config/example-postgres-db \
+bao write database/config/postgres-db \
     plugin_name="postgresql-database-plugin" \
     allowed_roles="*" \
     connection_url="postgresql://{{username}}:{{password}}@postgres:5432/postgres" \
@@ -19,7 +19,7 @@ bao write database/roles/app_user \
     renewal_statements="ALTER ROLE \"{{name}}\" VALID UNTIL '{{expiration}}';" \
     username="app_user" \
     rotation_period="5m" \
-    db_name="example-postgres-db" \
+    db_name="postgres-db" \
     rotation_statements="ALTER ROLE \"{{name}}\" WITH PASSWORD '{{password}}';"
 
 sleep infinity
