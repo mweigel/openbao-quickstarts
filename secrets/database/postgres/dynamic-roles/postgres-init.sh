@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+set -e
+
+# Create the OpenBao Postgres user.
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+	CREATE ROLE openbao WITH LOGIN PASSWORD '${ROOT_DB_USER_PASSWORD}';
+    ALTER ROLE openbao CREATEROLE NOCREATEDB NOSUPERUSER NOREPLICATION NOBYPASSRLS;
+EOSQL

@@ -1,0 +1,59 @@
+networks:
+  default:
+    name: openbao-quickstarts
+
+services:
+  keycloak:
+    container_name: keycloak
+    image: quay.io/keycloak/keycloak:latest
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: "admin"
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD}
+    ports:
+      - "8080:8080"
+      - "9000:9000"
+    command: start-dev --health-enabled=true
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 10s bash -c ':> /dev/tcp/localhost/8080'"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  openbao:
+    container_name: openbao
+    image: openbao/openbao:latest
+    environment:
+      BAO_DEV_ROOT_TOKEN_ID: "${BAO_DEV_ROOT_TOKEN_ID}"
+      BAO_ADDR: "http://127.0.0.1:8200"
+      BAO_TOKEN: "${BAO_DEV_ROOT_TOKEN_ID}"
+    ports:
+      - "8200:8200"
+      - "8250:8250"
+    command: server -dev
+    healthcheck:
+      test: ["CMD-SHELL", "bao status"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      keycloak:
+        condition: service_healthy
+
+  client:
+    container_name: client
+    build: .
+    environment:
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD}
+      OIDC_USER_PASSWORD: ${OIDC_USER_PASSWORD}
+      BAO_ADDR: "http://openbao:8200"
+      BAO_TOKEN: ${BAO_DEV_ROOT_TOKEN_ID}
+      BROWSER: "w3m"
+    volumes:
+      - ./example-init.sh:/usr/local/bin/example-init.sh:Z
+    entrypoint: ["/bin/sh", "/usr/local/bin/example-init.sh"]
+    depends_on:
+      keycloak:
+        condition: service_healthy
+      openbao:
+        condition: service_healthy
+    init: true
