@@ -14,15 +14,15 @@ Ensure appropriate values are set in .env for the following environment variable
 | OIDC_USER_PASSWORD | Password for user used to authenticate to Keycloak |
 
 ## Running the Example
-After configuring the example, it can be started using podman-compose as shown below. Keycloak may take some time to start up.
+After configuring the example, it can be started as shown below. Keycloak may take some time to start up.
 ```bash
-podman-compose up
+make up
 ```
 
 ## Using OpenBao's OIDC Authentication Method
 Get shell within the example-init container
 ```bash
-podman exec -it client sh
+make exec
 ```
 
 Authenticate to OpenBao using the `bao login` command shown below. This will start the text-based w3m browser and prompt you to enter a username and password.
@@ -85,4 +85,9 @@ token_policies       ["default"]
 identity_policies    []
 policies             ["default"]
 token_meta_role      demo-user
+```
+
+## Stop the Example
+```bash
+make down
 ```

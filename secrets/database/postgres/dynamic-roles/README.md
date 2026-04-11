@@ -13,12 +13,17 @@ Ensure appropriate values are set in .env for the following environment variable
 | ROOT_DB_USER_PASSWORD | Password for the role OpenBao uses to connect to Postgres |
 
 ## Running the Example
-After configuring the example, it can be started using podman-compose as shown below.
+After configuring the example, it can be started as shown below.
 ```bash
-podman-compose up
+make up
 ```
 
 ## Using OpenBao's Database Secrets Engine
+Get shell within the example-init container
+```bash
+make exec
+```
+
 ### Reading Postgres Credentials from OpenBao
 Client applications can retrieve Postgres credentials from OpenBao. When doing so, OpenBao dynamcially creates a Postgres role and returns the username and password to the client. The client can then use the provided credentials to connect to Postgres. The credentials are valid for the duration of the associated lease and when the lease expires, the credentials can no longer be used. 
 ```bash
@@ -49,7 +54,7 @@ The credentials of the "root" user OpenBao uses to dynamically create Postgres r
 bao write -f database/rotate-root/example-postgres-db
 ```
 
-## Stop OpenBao and Postgres Containers
+## Stop the Example
 ```bash
-podman-compose down
+make down
 ```

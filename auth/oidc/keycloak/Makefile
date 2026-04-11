@@ -8,10 +8,13 @@ ifeq ($(COMPOSE),)
 $(error Neither 'docker compose' nor 'podman-compose' is available)
 endif
 
-.PHONY: up down
+.PHONY: up exec down
 
 up:
-	$(COMPOSE) up
+	$(COMPOSE) up -d
+
+exec:
+	$(COMPOSE) exec -it client sh
 
 down:
-	$(COMPOSE) down
+	$(COMPOSE) down -v
