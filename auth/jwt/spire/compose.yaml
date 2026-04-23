@@ -1,0 +1,59 @@
+networks:
+  default:
+    name: openbao-quickstarts
+
+volumes:
+  certs:
+
+services:
+  spire-server:
+    container_name: spire-server
+    build:
+      context: ./server
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    volumes:
+      - certs:/certs:Z
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/spire/bin/spire-server healthcheck"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  spire-agent:
+    container_name: spire-agent
+    build:
+      context: ./agent
+    environment:
+      BAO_ADDR: "http://openbao:8200"
+      BAO_TOKEN: "root"
+    volumes:
+      - certs:/certs:Z
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/spire/bin/spire-agent healthcheck"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      spire-server:
+        condition: service_healthy
+
+  openbao:
+    container_name: openbao
+    image: openbao/openbao:latest
+    environment:
+      BAO_DEV_ROOT_TOKEN_ID: "root"
+      BAO_ADDR: "http://127.0.0.1:8200"
+      BAO_TOKEN: "root"
+    ports:
+      - "8200:8200"
+    command: server -dev
+    healthcheck:
+      test: ["CMD-SHELL", "bao status"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      spire-agent:
+        condition: service_healthy
