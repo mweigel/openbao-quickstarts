@@ -4,11 +4,11 @@
 
 # Overview
 
-In the steps below, we'll retrieve a JWT from the SPIRE agent's workload API and use it to authenticate to OpenBao. To do this we'll:
+In the steps below, we'll retrieve a JWT from the SPIRE agent's workload API and use it to authenticate to OpenBao. To do this we will:
 
-1. Create registration entries on the SPIRE server to identify our workload
-1. Configure OpenBao with a JWT authentication method and roles which can be used to log in
-1. Retrieve a JWT from the SPIRE agent workload API and use it to authenticate to OpenBao
+1. Create a registration entry on the SPIRE server to identify our workload.
+1. Configure OpenBao with a JWT authentication method and role which can be used to log in.
+1. Retrieve a JWT from the SPIRE agent workload API and use it to authenticate to OpenBao.
 
 # Steps
 
@@ -25,6 +25,8 @@ Once this completes there will be three containers running:
 
 ## SPIRE Configuration
 Exec into the spire-server container using `make exec-spire-server`. Running `spire-server agent list` should show that a SPIRE agent has been registered.
+> [!NOTE]
+> The SPIFFE ID of the agent will be differernt to the one displayed below.
 ```
 Found 1 attested agent:
 
@@ -36,24 +38,20 @@ Can re-attest     : true
 Agent version     : 1.14.5
 ```
 
-Using the SPIFFE ID of the agent as the parent ID, create two registration entries, one for "workload-1" and the other for "workload-2". SPIRE supports many selectors but in this case we'll use a simple selector based on the user ID of a process.
+Using the SPIFFE ID of the agent as the parent ID, create a registration entry for "workload-1". SPIRE supports many selectors but in this case we'll use a simple selector based on a user ID.
 ```
 spiffe_path=$(spire-server agent list --output=json | jq -r .agents[0].id.path)
 spiffe_parent_id="spiffe://home.arpa${spiffe_path}"
 
 spire-server entry create -parentID "$spiffe_parent_id" \
     -spiffeID spiffe://home.arpa/workload-1 -selector unix:uid:10001
-
-spire-server entry create -parentID "$spiffe_parent_id" \
-    -spiffeID spiffe://home.arpa/workload-2 -selector unix:uid:10002
 ```
 
 ## OpenBao Configuration
-Exec into the openbao container using `make exec-openbao`. First, we'll create two kv secrets, one for each of our workloads and two policies that allow access to the secrets.
+Exec into the openbao container using `make exec-openbao`. First, we'll create a kv secret for the workload to read and then a policy to access it.
 
 ```
 bao kv put secret/workload-1/api-key key=foo
-bao kv put secret/workload-2/api-key key=bar
 
 bao policy write workload-1-policy - <<EOF
 path "secret/data/workload-1/*" {
@@ -64,19 +62,9 @@ path "secret/metadata/workload-1/*" {
   capabilities = ["create", "read", "update", "delete", "list", "patch"]
 }
 EOF
-
-bao policy write workload-2-policy - <<EOF
-path "secret/data/workload-2/*" {
-  capabilities = ["create", "read", "update", "delete", "list", "patch"]
-}
-
-path "secret/metadata/workload-2/*" {
-  capabilities = ["create", "read", "update", "delete", "list", "patch"]
-}
-EOF
 ```
 
-Next, we'll enable and configure a JWT authentication method. The "oidc_discovery_url" points to the OIDC discovery provider running alongside the SPIRE server. We'll also create two roles, the "user_claim" and "bound_subject" fields allow OpenBao to verify the identity of the client attempting to authenticate.
+Next, we'll configure a JWT authentication method in OpenBao. The "oidc_discovery_url" points to the OIDC discovery provider running alongside the SPIRE server. We'll also create a role, the "user_claim" and "bound_subject" fields allow OpenBao to verify the identity of the client attempting to authenticate.
 ```
 bao auth enable jwt
 
@@ -90,25 +78,18 @@ bao write auth/jwt/role/workload-1 \
     bound_subject="spiffe://home.arpa/workload-1" \
     token_policies=workload-1-policy \
     token_ttl="1h"
-
-bao write auth/jwt/role/workload-2 \
-    role_type="jwt" \
-    bound_audiences="openbao" \
-    user_claim="sub" \
-    bound_subject="spiffe://home.arpa/workload-2" \
-    token_policies=workload-2-policy \
-    token_ttl="1h"
 ```
 
 ## Retrieving a JWT and Logging Into OpenBao
-Exec into the spire-agent container using `make exec-spire-agent`. The spire-agent itself can be used to test with. Change to the "workload-1" user using `su - workload-1`. The UID of this user is 10001 matching the entry created earlier for SPIFFE ID "spiffe://home.arpa/workload-1".
+Exec into the spire-agent container using `make exec-spire-agent`. The spire-agent itself can be used to test retrieving a JWT from the workload API. Change to the "workload-1" user using `su - workload-1`. The UID of this user is 10001 matching the entry created earlier for SPIFFE ID "spiffe://home.arpa/workload-1". After the JWT has been retrieved it can be used to authenticate to OpenBao.
 ```
 export BAO_ADDR=http://openbao:8200
 
 jwt=$(spire-agent api fetch jwt -audience openbao -output=json | jq -r '.[0].svids.[0].svid')
 bao write auth/jwt/login role='workload-1' jwt="$jwt"
 ```
-If authentication was successful, an OpenBao token will be returned.
+
+If authentication was successful, an OpenBao token will be returned with the desired policies attached.
 ```
 Key                  Value
 ---                  -----
