@@ -1,0 +1,33 @@
+networks:
+  default:
+    name: openbao-quickstarts
+
+services:
+  openbao:
+    container_name: openbao
+    image: openbao/openbao:latest
+    environment:
+      BAO_DEV_ROOT_TOKEN_ID: "root"
+      BAO_ADDR: "http://127.0.0.1:8200"
+      BAO_TOKEN: "root"
+    ports:
+      - "8200:8200"
+    command: server -dev
+    healthcheck:
+      test: ["CMD-SHELL", "bao status"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  
+  client:
+    container_name: client
+    build: .
+    environment:
+      BAO_ADDR: "http://openbao:8200"
+      BAO_TOKEN: "root"
+    volumes:
+      - ./mfa-config:/mfa-config:Z
+    depends_on:
+      openbao:
+        condition: service_healthy
+    init: true
