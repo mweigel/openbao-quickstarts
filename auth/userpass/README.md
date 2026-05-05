@@ -36,12 +36,12 @@ OpenBao supports a [userpass](https://openbao.org/docs/auth/userpass/) authentic
     ```
     <details>
     <summary>Sample output</summary>
-    <pre>Success! Enabled userpass auth method at: userpass/</pre>
+    <pre>Success! Data written to: auth/userpass/users/alice</pre>
     </details>
 
 1.  Authenticate as the newly created user.
     ```bash
-    bao login -method=userpass username=alice
+    bao login -method=userpass username=alice password=testing
     ```
     <details>
     <summary>Sample output</summary>
@@ -121,17 +121,13 @@ OpenBao supports a [userpass](https://openbao.org/docs/auth/userpass/) authentic
 # Authenticate using MFA
 1.  Finally we can authenticate again as we did previously. This time however, in addition to a password you'll be prompted to enter a six digit MFA code.
     ```bash
-    bao login -method=userpass username=alice
+    bao login -method=userpass username=alice password=testing
     ```
     <details>
     <summary>Sample output</summary>
     <pre>
-    Password (will be hidden): 
     Initiating Interactive MFA Validation...
-    Enter the passphrase for methodID "a51cfbe1-6bf1-c4a3-21c5-c7725af23255" of type "totp": 
-    WARNING! The BAO_TOKEN environment variable is set! The value of this variable
-    will take precedence; if this is unwanted please unset BAO_TOKEN or update its
-    value accordingly.
+    Enter the passphrase for methodID "a51cfbe1-6bf1-c4a3-21c5-c7725af23255" of type "totp":
 
     Success! You are now authenticated. The token information displayed below is
     already stored in the token helper. You do NOT need to run "bao login" again.
