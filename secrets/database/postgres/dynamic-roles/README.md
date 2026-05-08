@@ -1,64 +1,107 @@
 # Postgres Credentials Using Dynamic Roles
 
-## Description
-An demonstration of how OpenBao can be configured to issue Postgres database credentials using [dynamic roles](https://openbao.org/docs/secrets/databases). See the `openbao-init.sh` and `postgres-init.sh` scripts for details of how OpenBao and Postgres are configured. OpenBao connects to Postgres using a "root" user (called "openbao" in this example) and dynamically creates new database roles on demand when requested by client applications.
+OpenBao can be configured to provide Postgres database credentials using [dynamic roles](https://openbao.org/docs/secrets/databases). When dynamic roles are in use, OpenBao connects to Postgres and creates new database roles on demand when requested by client applications.
 
-## Configuration
-Ensure appropriate values are set in .env for the items with environment variables listed below
+1. [Start the Example](#start-the-example)
+1. [Configure the Database Secrets Engine](#configure-the-database-secrets-engine)
+1. [Reading Postgres Credentials from OpenBao](#reading-postgres-credentials-from-openbao)
+1. [Stop the Example](#stop-the-example)
 
-| Item | Value | Environment Variable | Description |
-| --- | --- | --- | --- |
-| OpenBao root token | N/A | BAO_DEV_ROOT_TOKEN_ID | Openbao [dev mode root token](https://openbao.org/docs/concepts/dev-server) |
-| OpenBao root Postgres user | openbao | N/A | Role that OpenBao will use when [connecting to the database](https://openbao.org/api-docs/secret/databases/#configure-connection) |
-| OpenBao root Postgres password | N/A | ROOT_DB_USER_PASSWORD | Password for role above |
-| Client app user | app_user | N/A | Postgres role that [OpenBao will broker credentials for](https://openbao.org/api-docs/secret/databases/#create-role) |
-| Postgres superuser | postgres | N/A | [Postgres superuser](https://hub.docker.com/_/postgres#environment-variables) |
-| Postgres superuser password | N/A | POSTGRES_PASSWORD | Postgres superuser password |
-| Postgres database | postgres | N/A | Postgres database |
+# Start the Example
+1.  The example can be started as shown below.
+    ```bash
+    make up
+    ```
 
-## Running the Example
-After configuring the example, it can be started as shown below.
-```
-make up
-```
+    Once this completes there will be three containers running:
+    - **openbao** - The OpenBao server.
+    - **postgres** - The Postgres server.
+    - **client** -  The container used to test retrieving credentials from OpenBao and connecting to Postgres.
 
-## Using OpenBao's Database Secrets Engine
-To test client interaction with OpenBao and Postgres, exec into the client container.
-```
-make exec
-```
+    The [root user](https://openbao.org/api-docs/secret/databases/#common-fields) that is used by OpenBao to connect to Postgres will have been configured automatically. To see the values used and how they're configured check the [compose.yaml](compose.yaml) and [postgres-init.sh](postgres-init.sh) files.
+
+# Configure the Database Secrets Engine
+1.  Exec into the openbao container using `make exec-openbao` and enable the database secrets engine.
+    ```bash
+    bao secrets enable database
+    ```
+    <details>
+    <summary>Sample output</summary>
+    <pre>Success! Enabled the database secrets engine at: database/</pre>
+    </details>
+
+1.  Configure the connection to Postgres.
+    ```bash
+    bao write database/config/postgres-db \
+        plugin_name="postgresql-database-plugin" \
+        allowed_roles="*" \
+        connection_url="postgresql://{{username}}:{{password}}@postgres:5432/postgres" \
+        username="openbao" \
+        password="openbao" \
+        password_authentication="scram-sha-256"
+    ```
+    <details>
+    <summary>Sample output</summary>
+    <pre>Success! Data written to: database/config/postgres-db</pre>
+    </details>
+
+1.  Configure the Postgres role.
+    ```bash
+    bao write database/roles/app \
+        creation_statements="CREATE ROLE \"{{name}}\" WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}';" \
+        revocation_statements="DROP ROLE IF EXISTS \"{{name}}\";" \
+        renewal_statements="ALTER ROLE \"{{name}}\" VALID UNTIL '{{expiration}}';" \
+        username="app" \
+        rotation_period="5m" \
+        db_name="postgres-db" \
+        rotation_statements="ALTER ROLE \"{{name}}\" WITH PASSWORD '{{password}}';"
+    ```
+    <details>
+    <summary>Sample output</summary>
+    <pre>Success! Data written to: database/roles/app</pre>
+    </details>
+
+1.  Exit the openbao container.
 
 ### Reading Postgres Credentials from OpenBao
-Client applications can retrieve Postgres credentials from OpenBao. When doing so, OpenBao dynamcially creates a Postgres role and returns the username and password to the client. The client can then use the provided credentials to connect to Postgres. The credentials are valid for the duration of the associated lease and when the lease expires, the credentials can no longer be used. 
-```
-bao read database/creds/app_user
+We can now retrieve Postgres credentials for our dynamic role from OpenBao.
 
-Key                Value
----                -----
-lease_id           database/creds/app_user/RlICRGDjeYu4D5mJjyK2QFlQ
-lease_duration     768h
-lease_renewable    true
-password           -8PjnIF5DxRNPQKDYvyO
-username           v-token-app_user-iUdURiUfaGhYyQ2ovhVM-1775006222
-```
+1.  Exec into the client container using `make exec-client` and retrieve Postgres credentials. The dynamically generated username, password and [lease](https://openbao.org/docs/concepts/lease/) information are returned. When the lease expires, the dynamically generated Postgres role will be automatically deleted by OpenBao.
+    ```bash
+    bao read database/creds/app
+    ```
+    <details>
+    <summary>Sample output</summary>
+    <pre>
+    Key                Value
+    ---                -----
+    lease_id           database/creds/app/RlICRGDjeYu4D5mJjyK2QFlQ
+    lease_duration     768h
+    lease_renewable    true
+    password           -8PjnIF5DxRNPQKDYvyO
+    username           v-token-app-iUdURiUfaGhYyQ2ovhVM-1775006222
+    ```
+    </details>
 
-### Logging into Postgres Using Credentials Issued by OpenBao
-```
-response="$(bao read -format=json database/creds/app_user | jq -r .data)"
+1.  Test authenticating to Postgres using the provided credentials.
+    ```bash
+    response="$(bao read -format=json database/creds/app | jq -r .data)"
 
-export PGUSER="$(echo $response | jq -r .username)"
-export PGPASSWORD="$(echo $response | jq -r .password)"
+    export PGUSER="$(echo $response | jq -r .username)"
+    export PGPASSWORD="$(echo $response | jq -r .password)"
 
-psql -h postgres -p 5432 postgres -w
-```
+    psql -h postgres -p 5432 postgres -w
+    ```
+    <details>
+    <summary>Sample output</summary>
+    <pre>
+    psql (18.3)
+    Type "help" for help.
+    postgres=></pre>
+    </details>
 
-### Rotating the Root User's Credentials
-The credentials of the "root" user OpenBao uses to dynamically create Postgres roles can themselves be rotated.
-```
-bao write -f database/rotate-root/postgres-db
-```
-
-## Stop the Example
-```
-make down
-```
+# Stop the Example
+1.  Exit the client container and stop the example.
+    ```bash
+    make down
+    ```
