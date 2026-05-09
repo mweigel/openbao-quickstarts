@@ -1,11 +1,13 @@
-RUNTIME := $(shell which docker 2>/dev/null || which podman 2>/dev/null)
-COMPOSE := $(shell docker compose version > /dev/null 2>&1 && echo 'docker compose')
+DOCKER_COMPOSE := $(shell docker compose version > /dev/null 2>&1 && echo 'docker compose')
+PODMAN_COMPOSE := $(shell podman-compose version > /dev/null 2>&1 && echo 'podman-compose')
 
-ifeq ($(COMPOSE),)
-COMPOSE := $(shell podman-compose version > /dev/null 2>&1 && echo 'podman-compose')
-endif
-
-ifeq ($(COMPOSE),)
+ifeq ($(DOCKER_COMPOSE),docker compose)
+COMPOSE := $(DOCKER_COMPOSE)
+RUNTIME := docker
+else ifeq ($(PODMAN_COMPOSE),podman-compose)
+COMPOSE := $(PODMAN_COMPOSE)
+RUNTIME := podman
+else
 $(error Neither 'docker compose' nor 'podman-compose' is available)
 endif
 
